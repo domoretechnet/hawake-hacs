@@ -1,9 +1,0 @@
-{
-  "services": {
-    "update_alarm": "mdi:pencil-circle",
-    "trigger_alert": "mdi:bell-alert",
-    "dismiss": "mdi:alarm-off",
-    "snooze": "mdi:alarm-snooze",
-    "skip": "mdi:skip-next-circle"
-  }
-}
