@@ -7,70 +7,26 @@ Control and monitor the **HaWake Alarm** iOS app from Home Assistant. Dismiss al
 
 ---
 
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [MQTT Broker Setup](#mqtt-broker-setup)
+- [Configuration](#configuration)
+- [Entities](#entities)
+- [Services](#services)
+- [Example Automations](#example-automations)
+- [MQTT Topic Structure](#mqtt-topic-structure)
+- [Links](#links)
+
+---
+
 ## Requirements
 
 - [HaWake Alarm](https://apps.apple.com/app/hawake-alarm/id0000000000) iOS app (v2.0+)
 - A running MQTT broker (e.g. Mosquitto via the HA add-on)
 - The MQTT integration configured in Home Assistant
 - The HaWake app connected to the same MQTT broker
-
----
-
-## MQTT Broker Setup
-
-This section covers creating a dedicated MQTT user for the HaWake app and locking it down to only the topics it needs.
-
-### 1 — Create a dedicated user in the Mosquitto add-on
-
-Open **Settings → Add-ons → Mosquitto broker → Configuration** and add a login under the `logins` key:
-
-```yaml
-logins:
-  - username: hawake
-    password: "your_secure_password"
-customize:
-  active: true
-  folder: mosquitto
-```
-
-Using a dedicated user (rather than your HA admin account) keeps the app isolated — it can only see HaWake topics and nothing else in your broker.
-
-Save and restart the Mosquitto add-on.
-
-### 2 — Create the ACL file
-
-With `customize.active: true` set above, Mosquitto loads any `.conf` files from the `/share/mosquitto/` folder.
-
-Create the file `/share/mosquitto/hawake_acl.conf` — the easiest way is via the **File editor** add-on or SSH:
-
-```
-# HaWake iOS app — restrict to HaWake topics only
-
-user hawake
-topic readwrite hawake/#
-```
-
-This gives the `hawake` user read/write access to every topic under your configured prefix (default `hawake/`), which covers:
-
-| Access | Topics |
-|---|---|
-| **Publish** (app → broker) | `hawake/{device}/sensor/…` · `hawake/{device}/alarm/…` · `hawake/{device}/availability` · `hawake/{device}/arm/state` |
-| **Subscribe** (app listens) | `hawake/{device}/command/…` · `hawake/{device}/alarm/…/command/…` · `hawake/{device}/arm/command` |
-
-If you use a custom topic prefix in the app (e.g. `myhome`), replace `hawake/#` with `myhome/#`.
-
-Restart the Mosquitto add-on again to apply the ACL.
-
-### 3 — Connect the HaWake app
-
-In the HaWake iOS app, go to **Settings → MQTT Settings** and enter:
-
-- **Host** — your Home Assistant IP or hostname
-- **Port** — `1883` (or `8883` for TLS)
-- **Username** — `hawake`
-- **Password** — the password you set above
-
-The HA MQTT integration itself uses a separate system account that already has broader broker access — you do not need to modify its credentials.
 
 ---
 
@@ -90,27 +46,87 @@ The HA MQTT integration itself uses a separate system account that already has b
 
 ---
 
+## MQTT Broker Setup
+
+Create a dedicated MQTT user for the HaWake app and lock it down to only the topics it needs. This keeps the app isolated from the rest of your broker.
+
+### Step 1 — Create a dedicated user
+
+Open **Settings → Add-ons → Mosquitto broker → Configuration** and add a login under the `logins` key:
+
+```yaml
+logins:
+  - username: hawake
+    password: "your_secure_password"
+customize:
+  active: true
+  folder: mosquitto
+```
+
+Save and **restart the Mosquitto add-on**.
+
+### Step 2 — Create the ACL file
+
+With `customize.active: true` set above, Mosquitto loads any `.conf` files placed in `/share/mosquitto/`. Create `/share/mosquitto/hawake_acl.conf` using the **File editor** add-on or SSH:
+
+```
+# HaWake iOS app — restrict to HaWake topics only
+
+user hawake
+topic readwrite hawake/#
+```
+
+This grants the `hawake` user read/write access to every topic under the configured prefix (default `hawake/`):
+
+| Direction | Topics covered |
+|---|---|
+| **App → Broker** (publish) | `hawake/{device}/sensor/…` · `hawake/{device}/alarm/…` · `hawake/{device}/availability` · `hawake/{device}/arm/state` |
+| **App ← Broker** (subscribe) | `hawake/{device}/command/…` · `hawake/{device}/alarm/…/command/…` · `hawake/{device}/arm/command` |
+
+> If you use a custom topic prefix in the app (e.g. `myhome`), replace `hawake/#` with `myhome/#`.
+
+**Restart the Mosquitto add-on** again to apply the ACL.
+
+> **Note:** The HA MQTT integration uses a separate system account with broader broker access. You only need to configure credentials for the iOS app user.
+
+### Step 3 — Connect the HaWake app
+
+In the HaWake iOS app, go to **Settings → MQTT Settings** and enter:
+
+| Field | Value |
+|---|---|
+| Host | Your Home Assistant IP or hostname |
+| Port | `1883` (or `8883` for TLS) |
+| Username | `hawake` |
+| Password | The password you set in Step 1 |
+
+---
+
 ## Configuration
 
 1. Open **Settings → Devices & Services → Add Integration**
 2. Search for **HaWake Alarm**
 3. Enter the **Device Name** and **MQTT Topic Prefix** — these must exactly match what is set in the HaWake iOS app under **Settings → MQTT Settings**
 
-> Default values: Device Name = `iPhone`, Topic Prefix = `hawake`
+> **Defaults:** Device Name = `iPhone` · Topic Prefix = `hawake`
 
-You can add multiple devices (one entry per iPhone).
+You can add multiple devices (one integration entry per iPhone).
 
 ---
 
 ## Entities
 
-### Sensors (Dashboard)
+The integration creates several entity types across a main dashboard device and one sub-device per alarm.
+
+### Sensors
+
+Dashboard-level sensors reflecting the currently active alarm and app state:
 
 | Sensor | Description |
 |---|---|
 | Alarm State | `idle` / `ringing` / `snoozed` / `dismissed` |
 | Alarm Name | Name of the currently ringing or next upcoming alarm |
-| Alarm Mission | Mission type required to dismiss (shake, math, HA, none) |
+| Alarm Mission | Mission type required to dismiss (`shake`, `math`, `ha`, `none`) |
 | Alarm Fire Time | Scheduled fire time of the active or next alarm |
 | Alarm Snooze Fire Time | When a snoozed alarm will re-fire |
 | Alarm Sound | Sound ID playing for the active alarm |
@@ -149,7 +165,7 @@ For each alarm you create in the app, a dedicated HA device is created containin
 
 ### Buttons
 
-**Dashboard buttons** (act on the currently active alarm):
+**Dashboard buttons** act on the currently active alarm:
 
 | Button | Action |
 |---|---|
@@ -161,7 +177,7 @@ For each alarm you create in the app, a dedicated HA device is created containin
 | Kill Snoozed Alarm | Immediately end a snoozed alarm session |
 | Sleep Sound Stop / Pause / Resume | Control sleep sounds |
 
-**Per-alarm buttons** (on each alarm's device):
+**Per-alarm buttons** appear on each alarm's device:
 
 `Dismiss` · `Snooze` · `Skip` · `Unskip` · `Kill Snoozed` · `Delete`
 
@@ -176,7 +192,7 @@ For each alarm you create in the app, a dedicated HA device is created containin
 
 ### Media Player
 
-The integration exposes a **media player** entity that lets you play audio or TTS to the phone. Supports `media_player.play_media`, `media_player.media_announce`, and `media_player.volume_set`.
+Exposes a media player entity for playing audio or TTS to the phone. Supports `play_media`, `media_announce`, and `volume_set`.
 
 ```yaml
 service: media_player.play_media
@@ -208,7 +224,7 @@ data:
 
 ### `hawake.update_alarm`
 
-Modify an alarm by index or name.
+Modify an alarm by index or name:
 
 ```yaml
 service: hawake.update_alarm
@@ -227,7 +243,7 @@ data:
 
 ### `hawake.trigger_alert`
 
-Show a full-screen alert alarm on the phone.
+Show a full-screen alert alarm on the phone:
 
 ```yaml
 service: hawake.trigger_alert
@@ -242,7 +258,7 @@ data:
 
 ### `hawake.dismiss`
 
-Dismiss the currently ringing or snoozed alarm.
+Dismiss the currently ringing or snoozed alarm:
 
 ```yaml
 service: hawake.dismiss
@@ -252,7 +268,7 @@ data:
 
 ### `hawake.snooze`
 
-Snooze the currently ringing alarm.
+Snooze the currently ringing alarm:
 
 ```yaml
 service: hawake.snooze
@@ -262,7 +278,7 @@ data:
 
 ### `hawake.skip`
 
-Skip the next fire of the next upcoming alarm.
+Skip the next fire of the next upcoming alarm:
 
 ```yaml
 service: hawake.skip
@@ -274,7 +290,7 @@ data:
 
 ## Example Automations
 
-### Re-enable Monday alarm on Sunday evening
+### Re-enable a work alarm on Sunday evening
 
 ```yaml
 automation:
@@ -314,7 +330,7 @@ automation:
         volume: 1.0
 ```
 
-### Snooze alarm when leaving the bedroom
+### Auto-snooze when leaving the bedroom
 
 ```yaml
 automation:
