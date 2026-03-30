@@ -362,5 +362,5 @@ All topics follow the pattern `{prefix}/{device}/…`
 
 - [HaWake App](https://hawake.app)
 - [MQTT Payload Builder](https://domoretechnet.github.io/HaWake-info/mqtt-builder.html)
-- [MQTT Reference](https://hawake.app/docs/hass-api)
+- [MQTT Builder](https://hawake.app/mqtt-builder.html)
 - [Report an issue](https://github.com/hawake/hawake-hacs/issues)
