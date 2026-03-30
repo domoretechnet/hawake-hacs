@@ -16,6 +16,64 @@ Control and monitor the **HaWake Alarm** iOS app from Home Assistant. Dismiss al
 
 ---
 
+## MQTT Broker Setup
+
+This section covers creating a dedicated MQTT user for the HaWake app and locking it down to only the topics it needs.
+
+### 1 — Create a dedicated user in the Mosquitto add-on
+
+Open **Settings → Add-ons → Mosquitto broker → Configuration** and add a login under the `logins` key:
+
+```yaml
+logins:
+  - username: hawake
+    password: "your_secure_password"
+customize:
+  active: true
+  folder: mosquitto
+```
+
+Using a dedicated user (rather than your HA admin account) keeps the app isolated — it can only see HaWake topics and nothing else in your broker.
+
+Save and restart the Mosquitto add-on.
+
+### 2 — Create the ACL file
+
+With `customize.active: true` set above, Mosquitto loads any `.conf` files from the `/share/mosquitto/` folder.
+
+Create the file `/share/mosquitto/hawake_acl.conf` — the easiest way is via the **File editor** add-on or SSH:
+
+```
+# HaWake iOS app — restrict to HaWake topics only
+
+user hawake
+topic readwrite hawake/#
+```
+
+This gives the `hawake` user read/write access to every topic under your configured prefix (default `hawake/`), which covers:
+
+| Access | Topics |
+|---|---|
+| **Publish** (app → broker) | `hawake/{device}/sensor/…` · `hawake/{device}/alarm/…` · `hawake/{device}/availability` · `hawake/{device}/arm/state` |
+| **Subscribe** (app listens) | `hawake/{device}/command/…` · `hawake/{device}/alarm/…/command/…` · `hawake/{device}/arm/command` |
+
+If you use a custom topic prefix in the app (e.g. `myhome`), replace `hawake/#` with `myhome/#`.
+
+Restart the Mosquitto add-on again to apply the ACL.
+
+### 3 — Connect the HaWake app
+
+In the HaWake iOS app, go to **Settings → MQTT Settings** and enter:
+
+- **Host** — your Home Assistant IP or hostname
+- **Port** — `1883` (or `8883` for TLS)
+- **Username** — `hawake`
+- **Password** — the password you set above
+
+The HA MQTT integration itself uses a separate system account that already has broader broker access — you do not need to modify its credentials.
+
+---
+
 ## Installation
 
 ### Via HACS (recommended)
