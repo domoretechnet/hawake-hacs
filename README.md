@@ -28,8 +28,6 @@ Control and monitor the **HaWake Alarm** iOS app from Home Assistant. Dismiss al
 - The MQTT integration configured in Home Assistant
 - The HaWake app connected to the same MQTT broker
 
----
-
 ## 📦 Installation
 
 ### Via HACS (recommended)
@@ -43,8 +41,6 @@ Control and monitor the **HaWake Alarm** iOS app from Home Assistant. Dismiss al
 
 1. Copy `custom_components/hawake/` into your HA `config/custom_components/` directory
 2. Restart Home Assistant
-
----
 
 ## 📡 MQTT Broker Setup
 
@@ -102,8 +98,6 @@ In the HaWake iOS app, go to **Settings → MQTT Settings** and enter:
 
 > **Tip:** Use the [MQTT Payload Builder](https://domoretechnet.github.io/HaWake-info/mqtt-builder.html) to generate and test payloads before wiring up automations.
 
----
-
 ## ⚙️ Configuration
 
 1. Open **Settings → Devices & Services → Add Integration**
@@ -113,8 +107,6 @@ In the HaWake iOS app, go to **Settings → MQTT Settings** and enter:
 > **Defaults:** Device Name = `iPhone` · Topic Prefix = `hawake`
 
 You can add multiple devices (one integration entry per iPhone).
-
----
 
 ## 🔌 Entities
 
@@ -223,8 +215,6 @@ data:
     media_url: "http://your-ha.local:8123/local/doorbell.mp3"
 ```
 
----
-
 ## 🛠 Services
 
 ### `hawake.update_alarm`
@@ -291,8 +281,6 @@ data:
   device_name: iPhone
 ```
 
----
-
 ## 🤖 Example Automations
 
 ### Re-enable a work alarm on Sunday evening
@@ -354,8 +342,6 @@ automation:
         device_name: iPhone
 ```
 
----
-
 ## 🗺 MQTT Topic Structure
 
 All topics follow the pattern `{prefix}/{device}/…`
@@ -371,8 +357,6 @@ All topics follow the pattern `{prefix}/{device}/…`
 | HA → App | `hawake/iphone/arm/command` | Arm command |
 
 > Use the [MQTT Payload Builder](https://domoretechnet.github.io/HaWake-info/mqtt-builder.html) to interactively construct and copy payloads for any of these topics.
-
----
 
 ## 🔗 Links
 
