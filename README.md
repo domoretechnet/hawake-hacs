@@ -5,19 +5,7 @@
 
 Control and monitor the **HaWake Alarm** iOS app from Home Assistant. Dismiss alarms, snooze, send full-screen alerts to your phone, automate alarm schedules, and expose alarm state as sensors — all over MQTT.
 
----
-
-## 📋 Table of Contents
-
-- [Requirements](#-requirements)
-- [Installation](#-installation)
-- [MQTT Broker Setup](#-mqtt-broker-setup)
-- [Configuration](#-configuration)
-- [Entities](#-entities)
-- [Services](#-services)
-- [Example Automations](#-example-automations)
-- [MQTT Topic Structure](#-mqtt-topic-structure)
-- [Links](#-links)
+📖 **[Full documentation, entity reference, services, and example automations →](https://hawake.app/home-assistant.html)**
 
 ---
 
@@ -33,7 +21,7 @@ Control and monitor the **HaWake Alarm** iOS app from Home Assistant. Dismiss al
 ### Via HACS (recommended)
 
 1. In Home Assistant, go to **HACS → Integrations → ⋮ → Custom repositories**
-2. Add this repository URL and select **Integration** as the category
+2. Add `https://github.com/domoretechnet/hawake-hacs` and select **Integration** as the category
 3. Find **HaWake Alarm** in the HACS store and click **Download**
 4. Restart Home Assistant
 
@@ -42,325 +30,22 @@ Control and monitor the **HaWake Alarm** iOS app from Home Assistant. Dismiss al
 1. Copy `custom_components/hawake/` into your HA `config/custom_components/` directory
 2. Restart Home Assistant
 
-## 📡 MQTT Broker Setup
+## ⚡ Quick Setup
 
-Create a dedicated MQTT user for the HaWake app and restrict it to only the topics it needs. This keeps the app isolated from the rest of your broker.
+After installing, complete setup in four steps:
 
-### Step 1 — Create a dedicated user
-
-Open **Settings → Add-ons → Mosquitto broker → Configuration** and add a login under the `logins` key:
-
-```yaml
-logins:
-  - username: hawake
-    password: "your_secure_password"
-customize:
-  active: true
-  folder: mosquitto
-```
-
-Save and **restart the Mosquitto add-on**.
-
-### Step 2 — Create the ACL file
-
-With `customize.active: true` set above, Mosquitto loads any `.conf` files placed in `/share/mosquitto/`. Create `/share/mosquitto/hawake_acl.conf` using the **File editor** add-on or SSH:
-
-```
-# HaWake iOS app — restrict to HaWake topics only
-
-user hawake
-topic readwrite hawake/#
-```
-
-This grants the `hawake` user read/write access to every topic under the configured prefix (default `hawake/`):
-
-| Direction | Topics covered |
-|---|---|
-| **App → Broker** (publish) | `hawake/{device}/sensor/…` · `hawake/{device}/alarm/…` · `hawake/{device}/availability` · `hawake/{device}/arm/state` |
-| **App ← Broker** (subscribe) | `hawake/{device}/command/…` · `hawake/{device}/alarm/…/command/…` · `hawake/{device}/arm/command` |
-
-> **Custom prefix?** If you use a different topic prefix in the app (e.g. `myhome`), replace `hawake/#` with `myhome/#`.
-
-**Restart the Mosquitto add-on** again to apply the ACL.
-
-> **Note:** The HA MQTT integration uses a separate system account with broader broker access. You only need to configure credentials for the iOS app user.
-
-### Step 3 — Connect the HaWake app
-
-In the HaWake iOS app, go to **Settings → MQTT Settings** and enter:
-
-| Field | Value |
-|---|---|
-| Host | Your Home Assistant IP or hostname |
-| Port | `1883` (or `8883` for TLS) |
-| Username | `hawake` |
-| Password | The password you set in Step 1 |
-
-> **Tip:** Use the [MQTT Payload Builder](https://domoretechnet.github.io/HaWake-info/mqtt-builder.html) to generate and test payloads before wiring up automations.
-
-## ⚙️ Configuration
-
-1. Open **Settings → Devices & Services → Add Integration**
-2. Search for **HaWake Alarm**
-3. Enter the **Device Name** and **MQTT Topic Prefix** — these must exactly match what is set in the HaWake iOS app under **Settings → MQTT Settings**
+1. Create a dedicated MQTT user for the app in your Mosquitto broker and restrict it to `hawake/#`
+2. Connect the HaWake iOS app (**Settings → MQTT Settings**) to your broker
+3. Add the **HaWake Alarm** integration in **Settings → Devices & Services**
+4. Match the Device Name and Topic Prefix between the app and the integration
 
 > **Defaults:** Device Name = `iPhone` · Topic Prefix = `hawake`
 
-You can add multiple devices (one integration entry per iPhone).
-
-## 🔌 Entities
-
-The integration creates entities across a main dashboard device and one sub-device per alarm.
-
-### Sensors
-
-<details>
-<summary>View all dashboard sensors</summary>
-
-| Sensor | Description |
-|---|---|
-| Alarm State | `idle` / `ringing` / `snoozed` / `dismissed` |
-| Alarm Name | Name of the currently ringing or next upcoming alarm |
-| Alarm Mission | Mission type required to dismiss (`shake`, `math`, `ha`, `none`) |
-| Alarm Fire Time | Scheduled fire time of the active or next alarm |
-| Alarm Snooze Fire Time | When a snoozed alarm will re-fire |
-| Alarm Sound | Sound ID playing for the active alarm |
-| Alarm Volume | Volume % for the active alarm |
-| Alarm Vibrate | Whether vibration is enabled |
-| Alarm Fade In | Whether fade-in is active |
-| Alarm Notes | Notes attached to the active alarm |
-| Alarm ID | MQTT index of the active alarm |
-| Alarm Snooze Count | Number of times the current alarm has been snoozed |
-| Snoozes Remaining | Snoozes left before alarm is force-dismissed |
-| Alarm Count | Number of active (enabled) alarms |
-| App Version | HaWake app version string |
-| Broker Connection | MQTT connection state reported by the app |
-| Alert Volume | Volume used for HA-triggered alert alarms (%) |
-| Alert Sound | Default sound for HA alert alarms |
-| Alert Vibrate | Whether HA alert alarms vibrate |
-| Alert Loop Media | Whether media audio loops during HA alerts |
-| Alert Loop Delay | Seconds between media audio loops |
-| Quick Alarm | Active quick alarm state |
-| Quick Alarm Fire Time | When the quick alarm fires |
-| Quick Alarm Label | Label of the quick alarm |
-| Quick Alarm Count | Number of active quick alarms |
-| Sleep Sound Volume | Current sleep sounds volume (%) |
-
-</details>
-
-### Binary Sensor
-
-| Sensor | Description |
-|---|---|
-| App Online | `on` when the iOS app is connected to the broker |
-
-### Per-Alarm Sensors
-
-For each alarm you create in the app, a dedicated HA device is created containing:
-
-`Name` · `Enabled` · `State` · `Fire Time` · `Snooze Fire Time` · `Days` · `Mission` · `Sound` · `Snoozes` · `Volume` · `Vibrate` · `Fade In` · `Notes` · `Sort Order` · `Commands` · `Swipe Left/Right Commands`
-
-### Buttons
-
-**Dashboard buttons** act on the currently active alarm:
-
-| Button | Action |
-|---|---|
-| Dismiss Alarm | Dismiss the ringing/snoozed alarm |
-| Snooze Alarm | Snooze the ringing alarm |
-| Skip Alarm | Skip the next upcoming fire for the active alarm |
-| Unskip Alarm | Remove the skip flag from the next alarm |
-| Delete Next Alarm | Delete the next alarm in the queue |
-| Kill Snoozed Alarm | Immediately end a snoozed alarm session |
-| Sleep Sound Stop / Pause / Resume | Control sleep sounds |
-
-**Per-alarm buttons** appear on each alarm's device:
-
-`Dismiss` · `Snooze` · `Skip` · `Unskip` · `Kill Snoozed` · `Delete`
-
-### Switches
-
-| Switch | Description |
-|---|---|
-| Arm | Master arm/disarm toggle (HA is source of truth) |
-| Alarm N — Enabled | Enable or disable a specific alarm |
-| Alert Vibrate | Toggle vibration for HA alert alarms |
-| Alert Loop Media | Toggle media looping for HA alert alarms |
-
-### Media Player
-
-Exposes a media player entity for playing audio or TTS to the phone. Supports `play_media`, `media_announce`, and `volume_set`.
-
-```yaml
-service: media_player.play_media
-target:
-  entity_id: media_player.hawake_iphone
-data:
-  media_content_id: media-source://tts/cloud?message=Good+morning
-  media_content_type: music
-```
-
-### Notify
-
-Send a full-screen alert to the phone using the standard HA notify service:
-
-```yaml
-service: notify.hawake_iphone
-data:
-  title: "Door Alert"
-  message: "Front door opened"
-  data:
-    sound: "Perimeter_Breach"
-    volume: 0.8
-    media_url: "http://your-ha.local:8123/local/doorbell.mp3"
-```
-
-## 🛠 Services
-
-### `hawake.update_alarm`
-
-Modify an alarm by index or name:
-
-```yaml
-service: hawake.update_alarm
-data:
-  device_name: iPhone        # optional if only one device
-  name: "Work Alarm"         # target by name (or use index)
-  time: "07:30"
-  enabled: true
-  days: [1, 2, 3, 4, 5]     # 0=Sunday … 6=Saturday
-  sound: "Alarm_Clock"
-  volume: 0.8
-  snooze_duration: 9
-  max_snooze_count: 3
-  notes: "Team meeting at 9am"
-```
-
-### `hawake.trigger_alert`
-
-Show a full-screen alert alarm on the phone:
-
-```yaml
-service: hawake.trigger_alert
-data:
-  device_name: iPhone
-  title: "Motion Detected"
-  message: "Front camera triggered"
-  sound: "Perimeter_Breach"
-  volume: 0.9
-  media_url: "http://ha.local:8123/local/alert.mp3"
-```
-
-### `hawake.dismiss`
-
-Dismiss the currently ringing or snoozed alarm:
-
-```yaml
-service: hawake.dismiss
-data:
-  device_name: iPhone
-```
-
-### `hawake.snooze`
-
-Snooze the currently ringing alarm:
-
-```yaml
-service: hawake.snooze
-data:
-  device_name: iPhone
-```
-
-### `hawake.skip`
-
-Skip the next fire of the next upcoming alarm:
-
-```yaml
-service: hawake.skip
-data:
-  device_name: iPhone
-```
-
-## 🤖 Example Automations
-
-### Re-enable a work alarm on Sunday evening
-
-```yaml
-automation:
-  alias: "Re-enable work alarm on Sunday"
-  trigger:
-    - platform: time
-      at: "20:00:00"
-  condition:
-    - condition: time
-      weekday: [sun]
-  action:
-    - service: hawake.update_alarm
-      data:
-        name: "Work Alarm"
-        enabled: true
-```
-
-### Alert phone when front door opens at night
-
-```yaml
-automation:
-  alias: "Front door night alert"
-  trigger:
-    - platform: state
-      entity_id: binary_sensor.front_door
-      to: "on"
-  condition:
-    - condition: time
-      after: "22:00:00"
-      before: "06:00:00"
-  action:
-    - service: hawake.trigger_alert
-      data:
-        title: "Front Door"
-        message: "Front door opened"
-        sound: "Perimeter_Breach"
-        volume: 1.0
-```
-
-### Auto-snooze when leaving the bedroom
-
-```yaml
-automation:
-  alias: "Auto snooze when leaving bedroom"
-  trigger:
-    - platform: state
-      entity_id: sensor.hawake_iphone_alarm_state
-      to: "ringing"
-  action:
-    - delay: "00:00:30"
-    - condition: state
-      entity_id: binary_sensor.bedroom_presence
-      state: "off"
-    - service: hawake.snooze
-      data:
-        device_name: iPhone
-```
-
-## 🗺 MQTT Topic Structure
-
-All topics follow the pattern `{prefix}/{device}/…`
-
-| Direction | Topic Pattern | Description |
-|---|---|---|
-| App → HA | `hawake/iphone/sensor/{key}` | Dashboard sensor values |
-| App → HA | `hawake/iphone/alarm/{n}/{key}` | Per-alarm sensor values |
-| App → HA | `hawake/iphone/availability` | App online/offline |
-| App → HA | `hawake/iphone/arm/state` | Arm state |
-| HA → App | `hawake/iphone/command/{cmd}` | Dashboard commands |
-| HA → App | `hawake/iphone/alarm/{n}/command/{cmd}` | Per-alarm commands |
-| HA → App | `hawake/iphone/arm/command` | Arm command |
-
-> Use the [MQTT Payload Builder](https://domoretechnet.github.io/HaWake-info/mqtt-builder.html) to interactively construct and copy payloads for any of these topics.
+**[Full setup guide with MQTT configuration, ACL setup, entity reference, services, and example automations →](https://hawake.app/home-assistant.html)**
 
 ## 🔗 Links
 
 - [HaWake App](https://hawake.app)
-- [MQTT Payload Builder](https://domoretechnet.github.io/HaWake-info/mqtt-builder.html)
-- [MQTT Builder](https://hawake.app/mqtt-builder.html)
-- [Report an issue](https://github.com/hawake/hawake-hacs/issues)
+- [Setup Guide & Documentation](https://hawake.app/home-assistant.html)
+- [MQTT Payload Builder](https://hawake.app/mqtt-builder.html)
+- [Report an issue](https://github.com/domoretechnet/hawake-hacs/issues)
