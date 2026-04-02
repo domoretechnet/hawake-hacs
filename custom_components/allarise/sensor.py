@@ -13,10 +13,6 @@ from .const import DASHBOARD_SENSORS, DOMAIN, PER_ALARM_SENSORS
 from .coordinator import AllariseCoordinator
 
 
-# Quick alarm dashboard sensor keys — displayed under their own device
-QUICK_ALARM_KEYS = {"quick_alarm", "quick_alarm_fire_time", "quick_alarm_label", "quick_alarm_count"}
-
-
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry[AllariseCoordinator],
@@ -26,16 +22,11 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     entities: list[SensorEntity] = []
 
-    # Dashboard sensors (excluding quick alarm sensors — those go on their own device)
+    # All dashboard sensors (including quick alarm) go on the dashboard device
     for key, name_suffix, icon, _ in DASHBOARD_SENSORS:
-        if key in QUICK_ALARM_KEYS:
-            entities.append(
-                AllariseQuickAlarmSensor(coordinator, key, name_suffix, icon)
-            )
-        else:
-            entities.append(
-                AllariseDashboardSensor(coordinator, key, name_suffix, icon)
-            )
+        entities.append(
+            AllariseDashboardSensor(coordinator, key, name_suffix, icon)
+        )
 
     async_add_entities(entities)
 
@@ -74,51 +65,6 @@ class AllariseDashboardSensor(CoordinatorEntity[AllariseCoordinator], SensorEnti
         return DeviceInfo(
             identifiers={(DOMAIN, f"allarise_{self.coordinator.device_name}_dashboard")},
             name=f"Allarise {self.coordinator.device_name} - Dashboard",
-            manufacturer="Allarise",
-            model="iOS Alarm Clock",
-        )
-
-    @property
-    def available(self) -> bool:
-        """Return True if the app is online."""
-        return self.coordinator.app_online
-
-    @property
-    def native_value(self) -> str:
-        """Return the sensor value."""
-        return self.coordinator.get_dashboard_state(self._key)
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        self.async_write_ha_state()
-
-
-class AllariseQuickAlarmSensor(CoordinatorEntity[AllariseCoordinator], SensorEntity):
-    """A quick alarm sensor — grouped under its own HA device."""
-
-    _attr_has_entity_name = True
-
-    def __init__(
-        self,
-        coordinator: AllariseCoordinator,
-        key: str,
-        name_suffix: str,
-        icon: str,
-    ) -> None:
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-        self._key = key
-        self._attr_name = name_suffix
-        self._attr_icon = icon
-        self._attr_unique_id = f"allarise_{coordinator.device_name}_{key}"
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return device info."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, f"allarise_{self.coordinator.device_name}_quick_alarm")},
-            name=f"Allarise {self.coordinator.device_name} - Quick Alarm",
             manufacturer="Allarise",
             model="iOS Alarm Clock",
         )

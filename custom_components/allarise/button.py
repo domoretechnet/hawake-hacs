@@ -182,7 +182,7 @@ class AllarisePerAlarmButton(CoordinatorEntity[AllariseCoordinator], ButtonEntit
 
 
 class AllariseQuickAlarmButton(CoordinatorEntity[AllariseCoordinator], ButtonEntity):
-    """A quick alarm button — grouped under the Quick Alarm device.
+    """A quick alarm button — grouped under the Dashboard device.
 
     Only dismiss (when a quick alarm is ringing) and delete_quick_alarm
     (cancel the next pending quick alarm) are exposed. Snooze, skip, etc.
@@ -208,10 +208,10 @@ class AllariseQuickAlarmButton(CoordinatorEntity[AllariseCoordinator], ButtonEnt
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return device info — grouped under the Quick Alarm device."""
+        """Return device info — grouped under the Dashboard device."""
         return DeviceInfo(
-            identifiers={(DOMAIN, f"allarise_{self.coordinator.device_name}_quick_alarm")},
-            name=f"Allarise {self.coordinator.device_name} - Quick Alarm",
+            identifiers={(DOMAIN, f"allarise_{self.coordinator.device_name}_dashboard")},
+            name=f"Allarise {self.coordinator.device_name} - Dashboard",
             manufacturer="Allarise",
             model="iOS Alarm Clock",
         )
