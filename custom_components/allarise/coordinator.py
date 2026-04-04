@@ -10,6 +10,7 @@ from typing import Any
 from homeassistant.components import mqtt
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -241,6 +242,48 @@ class AllariseCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def get_zone_arm_state(self, zone_slug: str) -> bool:
         """Return the current arm state for a zone (False if unknown)."""
         return self._zone_arm_states.get(zone_slug, False)
+
+    @property
+    def known_zones(self) -> set[str]:
+        """Return the set of discovered zone slugs."""
+        return set(self._known_zones)
+
+    async def async_remove_zone(self, zone_slug: str) -> None:
+        """Remove an alarm zone permanently.
+
+        1. Clears the retained MQTT message on the broker (empty payload + retain).
+           This prevents the zone from being recreated on the next HA restart.
+        2. Removes the HA switch entity from the entity registry.
+        3. Drops the zone from coordinator state.
+
+        Note: if another phone is still actively publishing to this zone, it will
+        be recreated automatically on the next arm/disarm from that device.
+        """
+        if zone_slug not in self._known_zones:
+            return
+
+        # 1. Clear retained MQTT message — empty payload with retain=True tells
+        #    the broker to delete the retained message for this topic.
+        await mqtt.async_publish(
+            self.hass,
+            f"{self.topic_prefix}/alarm/{zone_slug}/state",
+            "",
+            retain=True,
+        )
+
+        # 2. Remove entity from HA entity registry
+        registry = er.async_get(self.hass)
+        unique_id = f"allarise_{self.device_name}_zone_{zone_slug}_armed"
+        entity_id = registry.async_get_entity_id("switch", DOMAIN, unique_id)
+        if entity_id:
+            registry.async_remove(entity_id)
+            _LOGGER.info("Removed zone %r switch entity from HA registry", zone_slug)
+
+        # 3. Drop from coordinator state
+        self._zone_arm_states.pop(zone_slug, None)
+        self._known_zones.discard(zone_slug)
+
+        _LOGGER.info("Zone %r removed for device %s", zone_slug, self.device_name)
 
     def _create_entities_for_new_alarm(self, alarm_index: int) -> None:
         """Create entities across all platforms for a newly discovered alarm."""

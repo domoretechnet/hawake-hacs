@@ -25,7 +25,23 @@
     "step": {
       "init": {
         "title": "Allarise Integration Info",
-        "description": "**Device:** {device_name}\n**MQTT Topic Prefix:** {topic_prefix}\n**Subscribing to:** `{mqtt_topic}`\n\nThese values must match the Allarise iOS app's MQTT settings."
+        "description": "**Device:** {device_name}\n**MQTT Topic Prefix:** {topic_prefix}\n**Subscribing to:** `{mqtt_topic}`\n\n**Alarm zones:** {zones_summary}\n\nTo remove an orphaned zone, enable **Manage Zones** below.",
+        "data": {
+          "manage_zones": "Manage Zones"
+        },
+        "data_description": {
+          "manage_zones": "Open the zone management screen to remove unused zones."
+        }
+      },
+      "manage_zones": {
+        "title": "Manage Alarm Zones",
+        "description": "{zones_note}",
+        "data": {
+          "zones_to_remove": "Zones to Remove"
+        },
+        "data_description": {
+          "zones_to_remove": "Selected zones will be removed from Home Assistant and their retained MQTT message will be cleared."
+        }
       }
     }
   }
