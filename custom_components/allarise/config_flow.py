@@ -16,8 +16,10 @@ from homeassistant.core import callback
 from .const import (
     CONF_DEVICE_NAME,
     CONF_TOPIC_PREFIX,
+    CONF_ZONE_SLUG,
     DEFAULT_DEVICE_NAME,
     DEFAULT_TOPIC_PREFIX,
+    DEFAULT_ZONE_SLUG,
     DOMAIN,
 )
 from .coordinator import AllariseCoordinator
@@ -37,6 +39,7 @@ class AllariseConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             device_name = user_input[CONF_DEVICE_NAME]
             topic_prefix = user_input.get(CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX)
+            zone_slug = user_input.get(CONF_ZONE_SLUG, DEFAULT_ZONE_SLUG)
 
             # Check for duplicate device names
             await self.async_set_unique_id(f"allarise_{device_name}")
@@ -51,6 +54,7 @@ class AllariseConfigFlow(ConfigFlow, domain=DOMAIN):
                     data={
                         CONF_DEVICE_NAME: device_name,
                         CONF_TOPIC_PREFIX: topic_prefix,
+                        CONF_ZONE_SLUG: zone_slug,
                     },
                 )
 
@@ -63,6 +67,9 @@ class AllariseConfigFlow(ConfigFlow, domain=DOMAIN):
                     ): str,
                     vol.Optional(
                         CONF_TOPIC_PREFIX, default=DEFAULT_TOPIC_PREFIX
+                    ): str,
+                    vol.Optional(
+                        CONF_ZONE_SLUG, default=DEFAULT_ZONE_SLUG
                     ): str,
                 }
             ),
@@ -95,6 +102,7 @@ class AllariseOptionsFlow(OptionsFlow):
 
         device_name = self._config_entry.data.get(CONF_DEVICE_NAME, "Unknown")
         topic_prefix = self._config_entry.data.get(CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX)
+        zone_slug = self._config_entry.data.get(CONF_ZONE_SLUG, DEFAULT_ZONE_SLUG)
         sanitized = AllariseCoordinator.sanitize_device_name(device_name)
 
         return self.async_show_form(
@@ -103,6 +111,8 @@ class AllariseOptionsFlow(OptionsFlow):
             description_placeholders={
                 "device_name": device_name,
                 "topic_prefix": topic_prefix,
+                "zone_slug": zone_slug,
                 "mqtt_topic": f"{topic_prefix}/{sanitized}/#",
+                "arm_topic": f"{topic_prefix}/alarm/{zone_slug}/state",
             },
         )

@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     DASHBOARD_SENSORS,
+    DEFAULT_ZONE_SLUG,
     DOMAIN,
     PER_ALARM_SENSORS,
     SUB_ALARM_WILDCARD,
@@ -71,6 +72,7 @@ class AllariseCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         device_name: str,
         topic_prefix: str,
         config_entry_id: str = "",
+        zone_slug: str = DEFAULT_ZONE_SLUG,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -80,6 +82,7 @@ class AllariseCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.device_name = self.sanitize_device_name(device_name)
         self.topic_prefix = topic_prefix
+        self._zone_slug = zone_slug
         self._config_entry_id = config_entry_id
 
         # State storage
@@ -132,10 +135,11 @@ class AllariseCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     # ─── Topic helpers ────────────────────────────────────────────────
 
     def _topic(self, template: str, **kwargs: Any) -> str:
-        """Format a topic template with prefix and device name."""
+        """Format a topic template with prefix, device name, and zone slug."""
         return template.format(
             prefix=self.topic_prefix,
             device=self.device_name,
+            zone=self._zone_slug,
             **kwargs,
         )
 
@@ -652,7 +656,7 @@ class AllariseCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @callback
     def _handle_arm_state_msg(self, msg: mqtt.ReceiveMessage) -> None:
-        """Handle {prefix}/{device}/arm/state — HA's own retained publish arriving back.
+        """Handle {prefix}/alarm/{zone}/state — HA's own retained publish arriving back.
 
         This fires on the coordinator's own initial subscription delivery.
         We update internal state so the switch entity reflects the broker's
@@ -667,11 +671,11 @@ class AllariseCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @callback
     def _handle_arm_command_msg(self, msg: mqtt.ReceiveMessage) -> None:
-        """Handle {prefix}/{device}/arm/command — arm request FROM the iOS app.
+        """Handle {prefix}/alarm/{zone}/set — arm request FROM the iOS app.
 
         HA is the source of truth. When the app requests a change, we honour it,
         update the HA entity, and re-publish the authoritative retained state to
-        arm/state so every subscriber (including the app) receives the confirmation.
+        alarm/{zone}/state so every subscriber (including the app) receives the confirmation.
         """
         payload = msg.payload
         if isinstance(payload, bytes):

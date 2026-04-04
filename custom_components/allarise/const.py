@@ -6,9 +6,11 @@ PLATFORMS = ["sensor", "binary_sensor", "button", "switch", "media_player", "num
 # Config keys
 CONF_DEVICE_NAME = "device_name"
 CONF_TOPIC_PREFIX = "topic_prefix"
+CONF_ZONE_SLUG = "zone_slug"
 
 DEFAULT_DEVICE_NAME = "iPhone"
 DEFAULT_TOPIC_PREFIX = "allarise"
+DEFAULT_ZONE_SLUG = "home"
 
 # ─── MQTT topic templates ────────────────────────────────────────────
 # {prefix} = user-configured topic prefix (default "allarise")
@@ -32,20 +34,22 @@ TOPIC_ALARM_AVAILABILITY = "{prefix}/{device}/alarm/{index}/availability"
 # Per-alarm button availability  →  {prefix}/{device}/alarm/{index}/{key}
 TOPIC_ALARM_BUTTON_AVAIL = "{prefix}/{device}/alarm/{index}/{key}"
 
-# Arm state (published by app)
-TOPIC_ARM_STATE = "{prefix}/{device}/arm/state"
+# Arm state — zone-based, shared across devices in the same zone
+# {zone} = armZoneSlug from the iOS app (e.g. "home", "my_zone")
+# No {device} — multiple phones with the same zone name share this topic.
+TOPIC_ARM_STATE = "{prefix}/alarm/{zone}/state"
 
 # ─── Command topics (integration publishes TO these) ─────────────────
 TOPIC_COMMAND = "{prefix}/{device}/command/{cmd}"
 TOPIC_ALARM_COMMAND = "{prefix}/{device}/alarm/{index}/command/{cmd}"
-TOPIC_ARM_COMMAND = "{prefix}/{device}/arm/command"
+TOPIC_ARM_COMMAND = "{prefix}/alarm/{zone}/set"
 
 # ─── Wildcard subscription topics (coordinator subscribes) ───────────
 SUB_SENSOR_WILDCARD = "{prefix}/{device}/sensor/#"
 SUB_DASHBOARD_WILDCARD = "{prefix}/{device}/dashboard/#"
 SUB_ALARM_WILDCARD = "{prefix}/{device}/alarm/+/#"
 SUB_AVAILABILITY = "{prefix}/{device}/availability"
-SUB_ARM_STATE = "{prefix}/{device}/arm/state"
+SUB_ARM_STATE = "{prefix}/alarm/{zone}/state"
 # Command status — app publishes {name}/status = fired|idle for each fired command
 SUB_COMMAND_STATUS_WILDCARD = "{prefix}/{device}/command/+/status"
 
