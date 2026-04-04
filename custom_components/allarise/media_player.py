@@ -51,7 +51,7 @@ class AllariseMediaPlayer(CoordinatorEntity[AllariseCoordinator], MediaPlayerEnt
     """Media player entity for sending audio alerts to Allarise."""
 
     _attr_has_entity_name = True
-    _attr_name = "Media Player"
+    _attr_name = "Alert Media"
     _attr_icon = "mdi:speaker-wireless"
     _attr_supported_features = (
         MediaPlayerEntityFeature.PLAY_MEDIA
