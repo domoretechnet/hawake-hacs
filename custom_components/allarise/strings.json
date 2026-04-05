@@ -12,6 +12,18 @@
           "device_name": "Must match the device name in the Allarise app's MQTT settings.",
           "topic_prefix": "MQTT topic prefix (default: allarise). Must match the app's MQTT topic prefix."
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Allarise Alarm",
+        "description": "Update the Device Name or MQTT Topic Prefix.\n\nBoth values must match what is configured in the Allarise iOS app under **Settings → MQTT Settings**.\n\nThe integration will reload automatically after saving.",
+        "data": {
+          "device_name": "Device Name",
+          "topic_prefix": "MQTT Topic Prefix"
+        },
+        "data_description": {
+          "device_name": "Must match the device name in the Allarise app's MQTT settings.",
+          "topic_prefix": "MQTT topic prefix (default: allarise). Must match the app's MQTT topic prefix."
+        }
       }
     },
     "error": {

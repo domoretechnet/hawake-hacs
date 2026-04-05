@@ -73,6 +73,55 @@ class AllariseConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration — allow changing device name and topic prefix."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            device_name = user_input[CONF_DEVICE_NAME]
+            topic_prefix = user_input.get(CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX)
+
+            # Update unique_id; abort if a different entry already owns the new name
+            await self.async_set_unique_id(f"allarise_{device_name}")
+            self._abort_if_unique_id_configured(
+                updates={
+                    CONF_DEVICE_NAME: device_name,
+                    CONF_TOPIC_PREFIX: topic_prefix,
+                }
+            )
+
+            return self.async_update_reload_and_abort(
+                entry,
+                title=f"Allarise - {device_name}",
+                data={
+                    CONF_DEVICE_NAME: device_name,
+                    CONF_TOPIC_PREFIX: topic_prefix,
+                },
+            )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_DEVICE_NAME,
+                        default=entry.data.get(CONF_DEVICE_NAME, DEFAULT_DEVICE_NAME),
+                    ): str,
+                    vol.Optional(
+                        CONF_TOPIC_PREFIX,
+                        default=entry.data.get(CONF_TOPIC_PREFIX, DEFAULT_TOPIC_PREFIX),
+                    ): str,
+                }
+            ),
+            errors=errors,
+            description_placeholders={
+                "docs_url": "https://allarise.app/docs/hass-api"
+            },
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
