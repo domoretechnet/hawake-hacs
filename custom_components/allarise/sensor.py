@@ -2,15 +2,41 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
+
+_MINUTES_UNTIL_REFRESH = timedelta(minutes=1)
 
 from .const import DASHBOARD_SENSORS, DOMAIN, PER_ALARM_SENSORS
 from .coordinator import AllariseCoordinator, CommandEntityFactory
+
+_FIRE_TIME_DASHBOARD_KEYS = frozenset({
+    "active_alarm_fire_time",
+    "active_alarm_snooze_fire_time",
+    "quick_alarm_fire_time",
+})
+_FIRE_TIME_PER_ALARM_KEYS = frozenset({
+    "fire_time",
+    "snooze_fire_time",
+})
+
+
+def _minutes_until(iso_string: str) -> int | None:
+    """Return whole minutes from now until an ISO timestamp, or None if unparseable."""
+    parsed = dt_util.parse_datetime(iso_string)
+    if parsed is None:
+        return None
+    if parsed.tzinfo is None:
+        parsed = dt_util.as_utc(parsed)
+    return round((parsed - dt_util.utcnow()).total_seconds() / 60)
 
 
 async def async_setup_entry(
@@ -85,6 +111,28 @@ class AllariseDashboardSensor(CoordinatorEntity[AllariseCoordinator], SensorEnti
         """Return the sensor value."""
         return self.coordinator.get_dashboard_state(self._key)
 
+    @property
+    def extra_state_attributes(self) -> dict[str, int] | None:
+        """Expose minutes_until for fire-time sensors."""
+        if self._key not in _FIRE_TIME_DASHBOARD_KEYS:
+            return None
+        minutes = _minutes_until(self.coordinator.get_dashboard_state(self._key))
+        if minutes is None:
+            return None
+        return {"minutes_until": minutes}
+
+    async def async_added_to_hass(self) -> None:
+        """Register a 1-minute tick for fire-time sensors so minutes_until stays fresh."""
+        await super().async_added_to_hass()
+        if self._key in _FIRE_TIME_DASHBOARD_KEYS:
+            self.async_on_remove(
+                async_track_time_interval(
+                    self.hass,
+                    lambda _now: self.async_write_ha_state(),
+                    _MINUTES_UNTIL_REFRESH,
+                )
+            )
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
@@ -141,6 +189,30 @@ class AllarisePerAlarmSensor(CoordinatorEntity[AllariseCoordinator], SensorEntit
     def native_value(self) -> str:
         """Return the sensor value."""
         return self.coordinator.get_per_alarm_state(self._alarm_index, self._key)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, int] | None:
+        """Expose minutes_until for fire-time sensors."""
+        if self._key not in _FIRE_TIME_PER_ALARM_KEYS:
+            return None
+        minutes = _minutes_until(
+            self.coordinator.get_per_alarm_state(self._alarm_index, self._key)
+        )
+        if minutes is None:
+            return None
+        return {"minutes_until": minutes}
+
+    async def async_added_to_hass(self) -> None:
+        """Register a 1-minute tick for fire-time sensors so minutes_until stays fresh."""
+        await super().async_added_to_hass()
+        if self._key in _FIRE_TIME_PER_ALARM_KEYS:
+            self.async_on_remove(
+                async_track_time_interval(
+                    self.hass,
+                    lambda _now: self.async_write_ha_state(),
+                    _MINUTES_UNTIL_REFRESH,
+                )
+            )
 
     @callback
     def _handle_coordinator_update(self) -> None:
